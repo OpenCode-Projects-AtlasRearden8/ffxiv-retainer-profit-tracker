@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFXIV Retainer Profit Tracker</title>
+<style>
+  :root {
+    --bg: #1c1b22;
+    --panel: #26242e;
+    --panel2: #2e2b38;
+    --text: #eceaf1;
+    --muted: #a29fb0;
+    --accent: #d9a648;
+    --accent2: #8f7bd8;
+    --good: #6fcf8f;
+    --bad: #e07a7a;
+    --border: #3b3745;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    padding: 1.2rem 1.5rem 0.6rem;
+    border-bottom: 2px solid var(--accent);
+    background: linear-gradient(180deg, #23202c, var(--bg));
+  }
+  header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
+  header p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; }
+  main { max-width: 1000px; margin: 0 auto; padding: 1rem; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+  }
+  h2 { margin: 0 0 0.6rem; font-size: 1.05rem; color: var(--accent2); }
+  h3 { margin: 0.8rem 0 0.3rem; font-size: 0.95rem; color: var(--text); }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.15rem; }
+  input, select, button {
+    font: inherit;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.55rem;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #241f10; font-weight: 600; border-color: var(--accent); }
+  button.danger { color: var(--bad); }
+  .grid { display: grid; gap: 0.6rem; }
+  .form-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.6rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pos { color: var(--good); }
+  .neg { color: var(--bad); }
+  .muted { color: var(--muted); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+  .stat {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+  }
+  .stat .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat .value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  pre.chart {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    margin: 0;
+    color: var(--text);
+  }
+  pre.chart .bar { color: var(--accent); letter-spacing: -0.5px; }
+  .error { color: var(--bad); font-size: 0.85rem; margin-top: 0.4rem; min-height: 1.2em; }
+  .hint { font-size: 0.8rem; color: var(--muted); margin: 0.3rem 0 0.8rem; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+  .scroll-x { overflow-x: auto; }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1rem 0 2rem; }
+  footer a { color: var(--accent2); }
+  @media (max-width: 600px) { main { padding: 0.6rem; } section { padding: 0.8rem; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>FFXIV Retainer Profit Tracker</h1>
+  <p>Track retainer venture sales and marketboard reselling profit &mdash; manual entries only, all data stays in your browser.</p>
+</header>
+<main>
+  <section>
+    <h2>Log a sale</h2>
+    <p class="hint">Enter one completed sale per row. Buy price is what you paid per item; sell price is what your retainer listed and sold it for. No scraping here &mdash; just your own numbers, typed in.</p>
+    <div class="grid form-grid">
+      <div><label for="date">Date</label><input type="date" id="date"></div>
+      <div><label for="item">Item name</label><input type="text" id="item" placeholder="e.g. Grade 6 Tcriptive" autocomplete="off"></div>
+      <div><label for="retainer">Retainer</label><input type="text" id="retainer" placeholder="e.g. Brie" autocomplete="off"></div>
+      <div><label for="qty">Quantity</label><input type="number" id="qty" min="1" step="1" value="1"></div>
+      <div><label for="buy">Buy price / item (gil)</label><input type="number" id="buy" min="0" step="1" placeholder="0"></div>
+      <div><label for="sell">Sell price / item (gil)</label><input type="number" id="sell" min="0" step="1" placeholder="0"></div>
+      <div><label for="taxpreset">Tax preset (data center)</label>
+        <select id="taxpreset"></select>
+      </div>
+      <div id="customwrap" hidden><label for="taxcustom">Custom tax rate %</label><input type="number" id="taxcustom" min="0" max="100" step="0.1"></div>
+    </div>
+    <div class="row">
+      <button class="primary" id="add">Add entry</button>
+      <button id="examples">Load starter example data</button>
+      <span id="live-preview" class="muted"></span>
+    </div>
+    <div class="error" id="form-error"></div>
+  </section>
+
+  <section>
+    <h2>Overall summary</h2>
+    <div class="stat-grid" id="overall-stats"></div>
+    <p class="hint">Tax is calculated as a percentage of the sale proceeds (rounded to the nearest gil), so <strong>net = sell total &minus; tax</strong> and <strong>profit = net &minus; buy total</strong>.</p>
+  </section>
+
+  <section>
+    <h2>Per-retainer summaries</h2>
+    <div class="scroll-x"><table id="retainer-table"></table></div>
+  </section>
+
+  <section>
+    <h2>Best-margin rankings</h2>
+    <p class="hint">Ranked by profit margin (% profit on the gil you spent). Entries where you paid nothing (e.g. from your own ventures or gardens) are excluded because a margin would be meaningless.</p>
+    <div class="scroll-x"><table id="ranking-table"></table></div>
+  </section>
+
+  <section>
+    <h2>Weekly profit chart</h2>
+    <pre class="chart" id="weekly-chart"></pre>
+    <p class="hint">Weeks start on Monday. Plain numbers only: each block is 1/40th of your best week, so text readers and screen readers get the same picture.</p>
+  </section>
+
+  <section>
+    <h2>All entries</h2>
+    <div class="row">
+      <button id="export">Export JSON</button>
+      <button id="export-csv">Export CSV</button>
+      <label class="muted" style="display:inline">Import JSON: <input type="file" id="import" accept=".json" style="background:var(--panel2)"></label>
+      <button class="danger" id="clear">Delete all entries</button>
+    </div>
+    <div class="error" id="import-error"></div>
+    <div class="scroll-x"><table id="entries-table"></table></div>
+  </section>
+
+  <section>
+    <details>
+      <summary>Tax presets: where these numbers come from</summary>
+      <p style="font-size:0.85rem;color:var(--muted)">Market tax rates in FFXIV differ by data center and change over time as players adjust rates in each of the three main cities. The presets below are best-effort starting defaults and may be out of date &mdash; check your server&rsquo;s current market tax ingame and use the &ldquo;Custom&rdquo; option if it differs. You can also edit presets here.</p>
+      <div class="form-grid grid" style="max-width:480px">
+        <div><label for="preset-edit">Preset</label><select id="preset-edit"></select></div>
+        <div><label for="preset-rate">Rate %</label><input type="number" id="preset-rate" min="0" max="100" step="0.1"></div>
+      </div>
+      <div class="row"><button id="save-presets">Save preset rates</button><span id="preset-msg" class="muted"></span></div>
+    </details>
+  </section>
+
+  <footer>
+    Built by <strong>Asdale Dynamics, LLC</strong> &middot; <a href="https://dylanasdale.github.io">dylanasdale.github.io</a><br>
+    Runs fully offline in your browser. Nothing is sent anywhere. MIT licensed.
+  </footer>
+</main>
+
+<script id="core">
+/* ===== Pure math core (also exercised by tests.js via node) ===== */
+'use strict';
+
+var DEFAULT_TAX_PRESETS = {
+  'Aether': 5, 'Primal': 5, 'Crystal': 3,
+  'Chaos': 4, 'Light': 4,
+  'Elemental (JP)': 0, 'Gaia (JP)': 0, 'Mana (JP)': 0,
+  'Oceanian': 3, 'Materia (CN)': 3, 'Korea': 3
+};
+
+function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+/* Market tax: percentage of gross sale proceeds, rounded to nearest gil. */
+function computeTax(sellTotal, ratePercent) {
+  if (ratePercent < 0 || ratePercent > 100) {
+    throw new Error('tax rate must be between 0 and 100, got ' + ratePercent);
+  }
+  return Math.round(sellTotal * (ratePercent / 100));
+}
+
+/* One entry: { id, date:'YYYY-MM-DD', item, retainer, qty, buy, sell, taxRate } */
+function entryTotals(e) {
+  var sellTotal = e.sell * e.qty;
+  var buyTotal = e.buy * e.qty;
+  var tax = computeTax(sellTotal, e.taxRate);
+  var net = sellTotal - tax;
+  var profit = net - buyTotal;
+  var marginPct = buyTotal > 0 ? (profit / buyTotal) * 100 : null;
+  return {
+    qty: e.qty,
+    sellTotal: sellTotal,
+    buyTotal: buyTotal,
+    tax: tax,
+    net: net,
+    profit: profit,
+    profitPerUnit: e.qty > 0 ? profit / e.qty : 0,
+    marginPct: marginPct === null ? null : round2(marginPct)
+  };
+}
+
+function summarize(entries) {
+  var out = { qty: 0, sellTotal: 0, buyTotal: 0, tax: 0, net: 0, profit: 0 };
+  entries.forEach(function (e) {
+    var t = entryTotals(e);
+    out.qty += t.qty;
+    out.sellTotal += t.sellTotal;
+    out.buyTotal += t.buyTotal;
+    out.tax += t.tax;
+    out.net += t.net;
+    out.profit += t.profit;
+  });
+  return out;
+}
+
+/* Group summaries by retainer, sorted by profit (best first). */
+function byRetainer(entries) {
+  var map = new Map();
+  entries.forEach(function (e) {
+    if (!map.has(e.retainer)) map.set(e.retainer, []);
+    map.get(e.retainer).push(e);
+  });
+  var rows = Array.from(map.keys()).map(function (name) {
+    return { retainer: name, totals: summarize(map.get(name)), count: map.get(name).length };
+  });
+  rows.sort(function (a, b) { return b.totals.profit - a.totals.profit; });
+  return rows;
+}
+
+/* Rank entries with a meaningful margin, best margin first. */
+function bestMargins(entries) {
+  return entries
+    .map(function (e) { return { entry: e, totals: entryTotals(e) }; })
+    .filter(function (r) { return r.totals.marginPct !== null; })
+    .sort(function (a, b) {
+      return b.totals.marginPct - a.totals.marginPct ||
+             b.totals.profit - a.totals.profit;
+    });
+}
+
+/* Monday-start ISO week key for a YYYY-MM-DD date string. */
+function weekStart(dateStr) {
+  var d = new Date(dateStr + 'T12:00:00Z');
+  var day = (d.getUTCDay() + 6) % 7; /* 0 = Monday */
+  d.setUTCDate(d.getUTCDate() - day);
+  return d.toISOString().slice(0, 10);
+}
+
+/* Weekly profits, oldest week first. */
+function weeklyProfits(entries) {
+  var map = new Map();
+  entries.forEach(function (e) {
+    var key = weekStart(e.date);
+    if (!map.has(key)) map.set(key, 0);
+    map.set(key, map.get(key) + entryTotals(e).profit);
+  });
+  return Array.from(map.keys()).sort().map(function (key) {
+    return { week: key, profit: map.get(key) };
+  });
+}
+
+/* Plain-text bar chart. Each '#' block = 1/40th of the biggest weekly magnitude. */
+function chartText(rows, weekLabel) {
+  if (rows.length === 0) return 'No entries yet.';
+  var max = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.profit); }));
+  if (max === 0) max = 1;
+  return rows.map(function (r) {
+    var blocks = Math.max(Math.abs(r.profit) !== 0 ? 1 : 0, Math.round(Math.abs(r.profit) / max * 40));
+    var bar = new Array(blocks + 1).join('#');
+    var val = (r.profit < 0 ? '-' : '+') + formatGil(Math.abs(r.profit));
+    return weekLabel(r.week) + '  ' + val + '  ' + bar;
+  }).join('\n');
+}
+
+function formatGil(n) {
+  return Math.round(n).toLocaleString('en-US');
+}
+</script>
+
+<script>
+'use strict';
+/* ===== Storage ===== */
+var LS_ENTRIES = 'ffxiv_rpt_entries_v1';
+var LS_PRESETS = 'ffxiv_rpt_presets_v1';
+
+function loadJSON(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch (err) { return fallback; }
+}
+function saveJSON(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+
+var taxPresets = loadJSON(LS_PRESETS, DEFAULT_TAX_PRESETS);
+var _stored = loadJSON(LS_ENTRIES, null);
+var entries = Array.isArray(_stored) ? _stored : EXAMPLE_ENTRIES();
+
+/* ===== Example data ===== */
+function EXAMPLE_ENTRIES() {
+  return [
+    { id: 1, date: '2026-10-05', item: 'Grade 6 Tektite', retainer: 'Brie',
+      qty: 20, buy: 480, sell: 700, taxRate: 5 },
+    { id: 2, date: '2026-10-06', item: 'Celery', retainer: 'Onion',
+      qty: 60, buy: 95, sell: 160, taxRate: 5 },
+    { id: 3, date: '2026-10-08', item: 'Raider\u2019s Crafted Vest', retainer: 'Brie',
+      qty: 1, buy: 12000, sell: 21000, taxRate: 5 },
+    { id: 4, date: '2026-10-12', item: 'Grade 6 Tektite', retainer: 'Shirogunger',
+      qty: 35, buy: 480, sell: 655, taxRate: 3 },
+    { id: 5, date: '2026-10-13', item: 'Craftsman\u2019s Competence Materia XI', retainer: 'Shirogunger',
+      qty: 12, buy: 1500, sell: 2400, taxRate: 3 },
+    { id: 6, date: '2026-10-14', item: 'Celery', retainer: 'Onion',
+      qty: 40, buy: 110, sell: 149, taxRate: 3 },
+    { id: 7, date: '2026-10-19', item: 'Raider\u2019s Crafted Vest', retainer: 'Brie',
+      qty: 2, buy: 12000, sell: 24500, taxRate: 5 },
+    { id: 8, date: '2026-10-20', item: 'Fire Cluster', retainer: 'Brie',
+      qty: 99, buy: 240, sell: 300, taxRate: 5 },
+    { id: 9, date: '2026-10-21', item: 'Ishgardian Brioche', retainer: 'Onion',
+      qty: 30, buy: 600, sell: 890, taxRate: 4 },
+    { id: 10, date: '2026-10-22', item: 'Snake Orange', retainer: 'Onion',
+      qty: 25, buy: 330, sell: 300, taxRate: 4 }
+  ];
+}
+
+/* ===== Helpers ===== */
+function $(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function signClass(n) { return n > 0 ? 'pos' : n < 0 ? 'neg' : ''; }
+function signed(n) { return (n > 0 ? '+' : '') + formatGil(n); }
+function taxSelectValue(rate) {
+  for (var k in taxPresets) if (taxPresets[k] === rate) return k;
+  return '__custom';
+}
+
+/* ===== Form ===== */
+function fillPresetSelect(sel) {
+  var keys = Object.keys(taxPresets).sort();
+  sel.innerHTML = keys.map(function (k) {
+    return '<option value="' + esc(k) + '">' + esc(k) + ' (' + taxPresets[k] + '%)</option>';
+  }).join('') + '<option value="__custom">Custom\u2026</option>';
+}
+
+function currentTaxRate() {
+  var key = $('taxpreset').value;
+  return key === '__custom' ? Number($('taxcustom').value) : taxPresets[key];
+}
+
+function livePreview() {
+  var qty = Number($('qty').value);
+  var buy = Number($('buy').value);
+  var sell = Number($('sell').value);
+  var rate = currentTaxRate();
+  if (!(qty > 0)) { $('live-preview').textContent = ''; return; }
+  var e = { id: 0, date: '', item: '', retainer: '', qty: qty, buy: buy, sell: sell, taxRate: rate };
+  try {
+    var t = entryTotals(e);
+    $('live-preview').textContent = 'Preview: tax ' + formatGil(t.tax) +
+      ' gil, profit ' + signed(t.profit) + ' gil' +
+      (t.marginPct !== null ? ' (' + round2(t.marginPct) + '% margin)' : '');
+  } catch (err) {
+    $('live-preview').textContent = 'Invalid tax rate';
+  }
+}
+
+function addEntry() {
+  var err = $('form-error');
+  err.textContent = '';
+  var item = $('item').value.trim();
+  var retainer = $('retainer').value.trim();
+  var date = $('date').value;
+  var qty = Number($('qty').value);
+  var buy = Number($('buy').value);
+  var sell = Number($('sell').value);
+  var rate = currentTaxRate();
+
+  if (!date) return err.textContent = 'Please pick a date.';
+  if (!item) return err.textContent = 'Please enter an item name.';
+  if (!retainer) return err.textContent = 'Please enter a retainer name.';
+  if (!Number.isInteger(qty) || qty < 1) return err.textContent = 'Quantity must be a whole number of at least 1.';
+  if (!(buy >= 0 && sell >= 0)) return err.textContent = 'Prices can\u2019t be negative.';
+  if (rate === '__custom') return err.textContent = 'Enable JavaScript? Please enter a custom rate number.';
+  if (rate < 0 || rate > 100) return err.textContent = 'Tax rate must be between 0 and 100%.';
+
+  var nextId = entries.reduce(function (m, e) { return Math.max(m, e.id); }, 0) + 1;
+  entries.push({ id: nextId, date: date, item: item, retainer: retainer,
+    qty: qty, buy: buy, sell: sell, taxRate: rate });
+  persistAndRender();
+  $('item').value = '';
+  $('qty').value = '1';
+  $('item').focus();
+  livePreview();
+}
+
+/* ===== Rendering ===== */
+function persistAndRender() {
+  saveJSON(LS_ENTRIES, entries);
+  renderAll();
+}
+
+function renderAll() {
+  renderOverall();
+  renderRetainers();
+  renderRankings();
+  renderWeekly();
+  renderEntries();
+}
+
+function renderOverall() {
+  var s = summarize(entries);
+  var items = [];
+  items.push({ label: 'Entries', value: formatGil(entries.length) });
+  items.push({ label: 'Gil spent', value: formatGil(s.buyTotal), cls: '' });
+  items.push({ label: 'Gil earned (net)', value: formatGil(s.net), cls: '' });
+  items.push({ label: 'Tax paid', value: formatGil(s.tax), cls: '' });
+  items.push({ label: 'Total profit', value: signed(s.profit), cls: signClass(s.profit) });
+  items.push({ label: 'Avg profit / entry', value: signed(entries.length ? round2(s.profit / entries.length) : 0), cls: signClass(s.profit) });
+  $('overall-stats').innerHTML = items.map(function (st) {
+    return '<div class="stat"><div class="label">' + st.label + '</div><div class="value ' + (st.cls || '') + '">' + esc(st.value) + '</div></div>';
+  }).join('');
+}
+
+function renderRetainers() {
+  var rows = byRetainer(entries);
+  var html = '<tr><th>Retainer</th><th class="num">Sales</th><th class="num">Items</th><th class="num">Spent</th><th class="num">Tax</th><th class="num">Net</th><th class="num">Profit</th></tr>';
+  if (rows.length === 0) html += '<tr><td colspan="7" class="muted">No entries yet \u2014 try \u201cLoad starter example data\u201d above.</td></tr>';
+  rows.forEach(function (r) {
+    var t = r.totals;
+    html += '<tr><td>' + esc(r.retainer) + '</td>' +
+      '<td class="num">' + r.count + '</td>' +
+      '<td class="num">' + t.qty + '</td>' +
+      '<td class="num">' + formatGil(t.buyTotal) + '</td>' +
+      '<td class="num">' + formatGil(t.tax) + '</td>' +
+      '<td class="num">' + formatGil(t.net) + '</td>' +
+      '<td class="num ' + signClass(t.profit) + '">' + signed(t.profit) + '</td></tr>';
+  });
+  $('retainer-table').innerHTML = html;
+}
+
+function renderRankings() {
+  var rows = bestMargins(entries).slice(0, 10);
+  var html = '<tr><th>#</th><th>Item (retainer)</th><th class="num">Qty</th><th class="num">Buy</th><th class="num">Net</th><th class="num">Profit</th><th class="num">Margin</th></tr>';
+  if (rows.length === 0) html += '<tr><td colspan="7" class="muted">Nothing to rank yet.</td></tr>';
+  rows.forEach(function (r, i) {
+    var t = r.totals, e = r.entry;
+    html += '<tr><td>' + (i + 1) + '</td><td>' + esc(e.item) + ' <span class="muted">(' + esc(e.retainer) + ')</span></td>' +
+      '<td class="num">' + t.qty + '</td>' +
+      '<td class="num">' + formatGil(t.buyTotal) + '</td>' +
+      '<td class="num">' + formatGil(t.net) + '</td>' +
+      '<td class="num ' + signClass(t.profit) + '">' + signed(t.profit) + '</td>' +
+      '<td class="num">' + (t.marginPct === null ? '' : round2(t.marginPct) + '%') + '</td></tr>';
+  });
+  $('ranking-table').innerHTML = html;
+}
+
+function renderWeekly() {
+  $('weekly-chart').textContent = chartText(weeklyProfits(entries), function (w) {
+    return 'Week of ' + w;
+  });
+}
+
+function renderEntries() {
+  var html = '<tr><th>Date</th><th>Item</th><th>Retainer</th><th class="num">Qty</th><th class="num">Buy</th><th class="num">Sell</th><th class="num">Tax</th><th class="num">Profit</th><th></th></tr>';
+  if (entries.length === 0) html += '<tr><td colspan="9" class="muted">No entries yet \u2014 log one above or load the starter example data.</td></tr>';
+  entries.slice().sort(function (a, b) { return b.date < a.date ? -1 : b.date > a.date ? 1 : b.id - a.id; })
+    .forEach(function (e) {
+      var t = entryTotals(e);
+      html += '<tr><td>' + esc(e.date) + '</td><td>' + esc(e.item) + '</td><td>' + esc(e.retainer) + '</td>' +
+        '<td class="num">' + e.qty + '</td>' +
+        '<td class="num">' + formatGil(e.buy) + '</td>' +
+        '<td class="num">' + formatGil(e.sell) + '</td>' +
+        '<td class="num">' + formatGil(t.tax) + '</td>' +
+        '<td class="num ' + signClass(t.profit) + '">' + signed(t.profit) + '</td>' +
+        '<td><button class="danger" data-del="' + e.id + '" aria-label="Delete entry ' + e.id + '">&times;</button></td></tr>';
+    });
+  $('entries-table').innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (btn) {
+    btn.addEventListener('click', function () {
+      entries = entries.filter(function (e) { return e.id !== Number(btn.dataset.del); });
+      persistAndRender();
+    });
+  });
+}
+
+/* ===== Import / export ===== */
+function download(name, mime, text) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+$('export').addEventListener('click', function () {
+  download('ffxiv-retainer-profit-' + new Date().toISOString().slice(0, 10) + '.json',
+    'application/json', JSON.stringify(entries, null, 2));
+});
+$('export-csv').addEventListener('click', function () {
+  var csv = 'date,item,retainer,qty,buy,sell,tax_rate_pct,tax_gil,profit_gil\n' +
+    entries.map(function (e) {
+      var t = entryTotals(e);
+      var row = [e.date, e.item, e.retainer, e.qty, e.buy, e.sell, e.taxRate, t.tax, t.profit];
+      return row.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\n');
+  download('ffxiv-retainer-profit.csv', 'text/csv', csv);
+});
+$('import').addEventListener('change', function (ev) {
+  var err = $('import-error');
+  err.textContent = '';
+  var file = ev.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var parsed = JSON.parse(String(reader.result));
+      if (!Array.isArray(parsed)) throw new Error('expected a JSON array of entries');
+      entries = parsed.map(function (e, i) {
+        return {
+          id: Number.isInteger(e.id) ? e.id : i + 1,
+          date: String(e.date), item: String(e.item), retainer: String(e.retainer),
+          qty: Number(e.qty), buy: Number(e.buy), sell: Number(e.sell),
+          taxRate: Number(e.taxRate)
+        };
+      });
+      persistAndRender();
+    } catch (e2) { err.textContent = 'Import failed: ' + e2.message; }
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+});
+$('clear').addEventListener('click', function () {
+  if (entries.length === 0) return;
+  if (confirm('Delete all ' + entries.length + ' entries? This cannot be undone (consider Export first).')) {
+    entries = [];
+    persistAndRender();
+  }
+});
+
+/* ===== Preset editing ===== */
+$('preset-rate').value = '';
+function fillPresetEdit() {
+  var sel = $('preset-edit');
+  var prev = sel.value;
+  var keys = Object.keys(taxPresets).sort();
+  sel.innerHTML = keys.map(function (k) {
+    return '<option value="' + esc(k) + '">' + esc(k) + ' (' + taxPresets[k] + '%)</option>';
+  }).join('');
+  sel.value = (prev && keys.indexOf(prev) !== -1) ? prev : keys[0];
+  syncPresetEdit();
+}
+function syncPresetEdit() {
+  var k = $('preset-edit').value;
+  if (taxPresets[k] !== undefined) $('preset-rate').value = taxPresets[k];
+}
+$('save-presets').addEventListener('click', function () {
+  var k = $('preset-edit').value;
+  var rate = Number($('preset-rate').value);
+  if (!(rate >= 0 && rate <= 100)) { $('preset-msg').textContent = 'Rate must be 0\u2013100%.'; return; }
+  taxPresets[k] = rate;
+  saveJSON(LS_PRESETS, taxPresets);
+  fillPresetSelect($('taxpreset'));
+  $('taxpreset').value = k;
+  fillPresetEdit();
+  $('preset-msg').textContent = 'Saved ' + k + ' at ' + rate + '%.';
+  renderAll(); livePreview();
+});
+
+/* ===== Wire-up ===== */
+$('add').addEventListener('click', addEntry);
+$('examples').addEventListener('click', function () {
+  if (entries.length === 0 || confirm('Replace current entries with the starter example data?')) {
+    entries = EXAMPLE_ENTRIES().map(function (e) { return Object.assign({}, e); });
+    persistAndRender();
+  }
+});
+['qty', 'buy', 'sell', 'taxpreset', 'taxcustom'].forEach(function (id) {
+  $(id).addEventListener('input', livePreview);
+});
+$('taxpreset').addEventListener('change', function () {
+  $('customwrap').hidden = $('taxpreset').value !== '__custom';
+  livePreview();
+});
+var _now = new Date();
+$('date').value = _now.getFullYear() + '-' +
+  String(_now.getMonth() + 1).padStart(2, '0') + '-' +
+  String(_now.getDate()).padStart(2, '0');
+$('taxpreset').value = Object.keys(taxPresets)[0];
+$('preset-edit').addEventListener('change', syncPresetEdit);
+fillPresetSelect($('taxpreset'));
+fillPresetEdit();
+renderAll();
+livePreview();
+</script>
+</body>
+</html>
